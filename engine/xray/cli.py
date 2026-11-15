@@ -1391,23 +1391,29 @@ def serve(
 
     from xray.api.app import create_app
 
-    # Claim the port before announcing it, so "ready" is never printed for a
-    # port that is already taken.
-    with socket.socket() as probe:
-        # Without this a port closed a moment ago still counts as taken.
-        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            probe.bind(("127.0.0.1", port))
-        except OSError:
-            _fail(f"Port {port} is already in use. Pick another with --port, or use 0.")
-        port = probe.getsockname()[1]
+    # Open the port *before* announcing it. Whoever reads the "ready" line may
+    # connect at once: connections then wait in the socket's queue until the
+    # server accepts them, instead of being refused.
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if os.name != "nt":
+        # Lets a port closed a moment ago be reused. (On Windows this option
+        # would instead let two servers share a port, so it is left off there.)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("127.0.0.1", port))
+        sock.listen(128)
+    except OSError:
+        sock.close()
+        _fail(f"Port {port} is already in use. Pick another with --port, or use 0.")
+    port = sock.getsockname()[1]
     token = token or secrets.token_urlsafe(24)
     # One machine-readable line for the desktop shell, which starts this process.
     print(json.dumps({"event": "ready", "port": port, "token": token}), flush=True)
     _exit_with_parent(os.environ.get("XRAY_PARENT_PID"))
     # XRAY_ACCESS_LOG=1 logs each request (to stderr), for diagnosing the desktop app.
     level = "info" if os.environ.get("XRAY_ACCESS_LOG") else "warning"
-    uvicorn.run(create_app(token=token), host="127.0.0.1", port=port, log_level=level)
+    config = uvicorn.Config(create_app(token=token), log_level=level)
+    uvicorn.Server(config).run(sockets=[sock])
 
 
 if __name__ == "__main__":

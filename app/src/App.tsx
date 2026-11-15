@@ -146,14 +146,30 @@ function App() {
   useEffect(() => {
     if (!conn) return;
     let live = true;
-    api(conn, "/system").then(
-      () => live && (uiLog("connected to the engine"), setChecked(true), setProblem(null)),
-      (e: Error) => live && (uiLog(`cannot reach the engine: ${e.message}`), setChecked(false), setProblem(e.message === "Failed to fetch" ? "Could not reach the engine at that address." : e.message), setConn(null)),
-    );
+    let timer: number | undefined;
+    // A network error (as opposed to an HTTP error such as a wrong token) can be
+    // a server that is still starting. Retry those for a few seconds first.
+    const attempt = (left: number) =>
+      api(conn, "/system").then(
+        () => live && (uiLog("connected to the engine"), setChecked(true), setProblem(null)),
+        (e: Error) => {
+          if (!live) return;
+          if (e instanceof TypeError && left > 0) {
+            timer = window.setTimeout(() => attempt(left - 1), 250);
+            return;
+          }
+          uiLog(`cannot reach the engine: ${e.message}`);
+          setChecked(false);
+          setProblem(e instanceof TypeError ? "Could not reach the engine at that address." : e.message);
+          setConn(null);
+        },
+      );
+    attempt(desktop ? 20 : 2);
     return () => {
       live = false;
+      window.clearTimeout(timer);
     };
-  }, [conn]);
+  }, [conn, desktop]);
 
   const setModel = (m: Model) => {
     setModelState(m);

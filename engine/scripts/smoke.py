@@ -89,12 +89,8 @@ class Smoke:
                 except urllib.error.HTTPError as e:
                     return e.code, {}
 
-            for _ in range(100):  # the port is announced just before the server listens
-                try:
-                    if get("/health", None)[0] == 200:
-                        break
-                except (urllib.error.URLError, ConnectionError):
-                    time.sleep(0.1)
+            # No waiting: the port must already be open when it is announced
+            # (the desktop app connects the moment it reads the "ready" line).
             assert get("/health", None)[1]["ok"] is True
             assert get("/system", None)[0] == 401, "the API must refuse requests without the token"
             assert get("/system", "smoke")[1]["backends"]["cpu"] is True
