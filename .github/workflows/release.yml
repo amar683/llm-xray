@@ -66,16 +66,33 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: npm ci
         working-directory: app
-      - uses: tauri-apps/tauri-action@v0
+      # macOS signing and notarization are optional. An unset secret still reaches
+      # the build as an empty variable, and Tauri then tries (and fails) to sign
+      # with an empty certificate, so only the secrets that exist are passed on.
+      - name: Apple signing settings (only those that are configured)
+        if: runner.os == 'macOS'
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # macOS signing and notarization (optional)
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set_count=0
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            value="${!name}"
+            if [ -n "$value" ]; then
+              delimiter="EOF_$(openssl rand -hex 8)"
+              { echo "$name<<$delimiter"; echo "$value"; echo "$delimiter"; } >> "$GITHUB_ENV"
+              set_count=$((set_count + 1))
+            fi
+          done
+          if [ "$set_count" -eq 0 ]; then echo "No Apple signing secrets: building an unsigned app."; fi
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}
