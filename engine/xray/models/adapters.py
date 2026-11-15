@@ -13,7 +13,7 @@ import torch
 from torch import nn
 
 from xray.core.device import default_dtype, pick_device
-from xray.models.inspect import resolve_model_dir
+from xray.models.inspect import UnsupportedModel, require_compatible, resolve_model_dir
 
 
 @dataclass(frozen=True)
@@ -100,11 +100,21 @@ def load_model(
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
     path = resolve_model_dir(model)
+    require_compatible(path)  # header check: refuse before spending time and memory
     dev = pick_device(device)
     dt = dtype or default_dtype(dev)
     # Attention weights are only returned by the slower "eager" implementation.
     extra = {"attn_implementation": "eager"} if eager_attention else {}
-    hf_model = AutoModelForCausalLM.from_pretrained(path, dtype=dt, local_files_only=True, **extra)
+    hf_model, info = AutoModelForCausalLM.from_pretrained(
+        path, dtype=dt, local_files_only=True, output_loading_info=True, **extra
+    )
+    if info["missing_keys"]:
+        # Belt and braces: the header check should already have caught this.
+        missing = sorted(info["missing_keys"])
+        raise UnsupportedModel(
+            f"{path.name} cannot be analysed: {len(missing)} weights were not in its files "
+            f"and would be random ({', '.join(missing[:3])})."
+        )
     hf_model.to(dev).eval()
     tokenizer = (
         AutoTokenizer.from_pretrained(path, local_files_only=True) if with_tokenizer else None

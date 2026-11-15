@@ -237,14 +237,16 @@ def analyse_loop(lm: LoadedModel, ids: torch.Tensor, case: dict[str, Any]) -> di
     ]
 
     # Writers: each block's direct push on the token that actually comes next.
-    w_u = refs.lm_head.weight.float()
-    centre = w_u.mean(0)
+    # Rows are converted to 32-bit only as they are used: a full 32-bit copy of
+    # the output head can be several GB.
+    w_u = refs.lm_head.weight
+    centre = w_u.mean(0, dtype=torch.float32)
 
     def push(component: torch.Tensor, pos: torch.Tensor) -> float:
         if len(pos) == 0:
             return 0.0
         pos = pos[pos + 1 < total][-48:]
-        direction = (w_u[full[0, pos + 1]] - centre) * norm_scale(
+        direction = (w_u[full[0, pos + 1]].float() - centre) * norm_scale(
             refs.final_norm, final_in["h"][pos]
         )
         return float((component[pos].float() * direction).sum(-1).mean())

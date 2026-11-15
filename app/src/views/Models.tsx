@@ -14,6 +14,10 @@ export function Models({ conn, model, onSelect }: { conn: Conn; model: Model | n
     setError(null);
     try {
       const a = await api<Anatomy>(conn, "/models/inspect", { body: { model: path.trim() } });
+      if (!a.compatibility.ok) {
+        setError(`This model cannot be analysed. ${a.compatibility.problems.join(" ")}`);
+        return;
+      }
       onSelect({ id: path.trim().split("/").filter(Boolean).pop() ?? path, path: a.path });
     } catch (e) {
       setError((e as Error).message);
@@ -51,7 +55,7 @@ export function Models({ conn, model, onSelect }: { conn: Conn; model: Model | n
               </tr>
             </thead>
             <tbody>
-              {models.data.map((m) => (
+              {models.data.map((m) => [
                 <tr key={m.path} className={model?.path === m.path ? "current" : ""}>
                   <td>{m.id}</td>
                   <td>{m.model_type ?? "unknown"}</td>
@@ -65,11 +69,20 @@ export function Models({ conn, model, onSelect }: { conn: Conn; model: Model | n
                         <button onClick={() => onSelect({ id: m.id, path: m.path })}>Select</button>
                       )
                     ) : (
-                      <span className="muted">Not supported yet</span>
+                      <span className="muted" title={m.problems.join(" ")}>
+                        Not supported
+                      </span>
                     )}
                   </td>
-                </tr>
-              ))}
+                </tr>,
+                !m.supported && m.problems.length > 0 && (
+                  <tr key={`${m.path}-why`} className="reason">
+                    <td colSpan={5} className="muted small">
+                      {m.problems.join(" ")}
+                    </td>
+                  </tr>
+                ),
+              ])}
             </tbody>
           </table>
         )}

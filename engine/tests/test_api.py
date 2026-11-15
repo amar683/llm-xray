@@ -62,7 +62,16 @@ def test_inspect_and_fit(client, tiny_model_dir):
 
 def test_models_list_shape(client):
     for m in client.get("/models", headers=AUTH).json():
-        assert {"id", "path", "model_type", "supported", "size_bytes"} <= set(m)
+        assert {
+            "id",
+            "path",
+            "model_type",
+            "supported",
+            "size_bytes",
+            "problems",
+            "warnings",
+        } <= set(m)
+        assert m["supported"] == (m["problems"] == [])
 
 
 def test_job_validation(client):

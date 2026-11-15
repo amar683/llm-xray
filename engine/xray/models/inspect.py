@@ -59,6 +59,88 @@ def read_safetensors_header(path: Path) -> dict[str, dict[str, Any]]:
     return header
 
 
+SUPPORTED_MODEL_TYPES = frozenset({"llama", "qwen2", "qwen3"})
+SUPPORTED_ARCHITECTURES = frozenset({"LlamaForCausalLM", "Qwen2ForCausalLM", "Qwen3ForCausalLM"})
+TOKENIZER_FILES = ("tokenizer.json", "tokenizer.model", "tokenizer_config.json")
+_LAYER_PARTS = (
+    "self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj",
+    "mlp.gate_proj", "mlp.up_proj", "mlp.down_proj",
+)  # fmt: skip
+
+
+class UnsupportedModel(ValueError):
+    """The model cannot be analysed as it is; the message says why."""
+
+
+def check_compatibility(
+    model_dir: Path, config: dict[str, Any], tensor_names: set[str]
+) -> dict[str, Any]:
+    """Can this folder be analysed as a standard Llama / Qwen text model?
+
+    Reads only the config and weight-file headers. `problems` make the model
+    unusable (the analysis would run on random weights or fail); `warnings`
+    reduce what the results mean.
+    """
+    problems: list[str] = []
+    warnings: list[str] = []
+
+    model_type = config.get("model_type")
+    if model_type not in SUPPORTED_MODEL_TYPES:
+        problems.append(
+            f"Its model type is '{model_type}'. "
+            "Supported: Llama 3.x and Qwen 2.x / 3.x text models."
+        )
+    archs = config.get("architectures") or []
+    unknown = [a for a in archs if a not in SUPPORTED_ARCHITECTURES]
+    if unknown:
+        problems.append(
+            f"Its architecture is {', '.join(unknown)}, not a standard Llama or Qwen "
+            "text model (for example a draft, vision or reward model built on one)."
+        )
+
+    # Checkpoints store weights with or without the "model." prefix.
+    names = {n.removeprefix("model.") for n in tensor_names}
+    required = ["embed_tokens.weight", "norm.weight"]
+    if not config.get("tie_word_embeddings", False):
+        required.append("lm_head.weight")
+    for i in range(int(config.get("num_hidden_layers") or 0)):
+        required += [f"layers.{i}.{part}.weight" for part in _LAYER_PARTS]
+    missing = [n for n in required if n not in names]
+    if missing:
+        what = {"embed_tokens.weight": "the embeddings", "lm_head.weight": "the output head"}
+        named = [what[n] for n in missing if n in what]
+        shown = ", ".join(named) if named else ", ".join(missing[:3])
+        problems.append(
+            f"{len(missing)} of the weights a {model_type} model needs are not in its files "
+            f"({shown}{', ...' if len(missing) > len(named or missing[:3]) else ''}). "
+            "Loading it would fill them with random numbers."
+        )
+
+    if not any((model_dir / f).exists() for f in TOKENIZER_FILES):
+        warnings.append(
+            "It has no tokenizer files, so prompts cannot be turned into its real tokens."
+        )
+    return {"ok": not problems, "problems": problems, "warnings": warnings}
+
+
+def compatibility_of(model_dir: Path) -> dict[str, Any]:
+    """`check_compatibility` for a folder on disk."""
+    config = json.loads((model_dir / "config.json").read_text())
+    names: set[str] = set()
+    for f in sorted(model_dir.glob("*.safetensors")):
+        names |= set(read_safetensors_header(f))
+    return check_compatibility(model_dir, config, names)
+
+
+def require_compatible(model_dir: Path) -> None:
+    """Raise `UnsupportedModel` with the reasons, instead of analysing a broken model."""
+    result = compatibility_of(model_dir)
+    if not result["ok"]:
+        raise UnsupportedModel(
+            f"{model_dir.name} cannot be analysed: " + " ".join(result["problems"])
+        )
+
+
 def classify_tensor(name: str) -> tuple[int | None, str]:
     """Map a tensor name to (layer index or None, component)."""
     m = _LAYER_RE.search(name)
@@ -103,8 +185,10 @@ def inspect_model(model: str) -> dict[str, Any]:
     dtypes: dict[str, int] = defaultdict(int)
     n_tensors = 0
 
+    tensor_names: set[str] = set()
     for f in files:
         for name, meta in read_safetensors_header(f).items():
+            tensor_names.add(name)
             params = _numel(meta["shape"])
             nbytes = params * DTYPE_BYTES.get(meta["dtype"], 0)
             layer, comp = classify_tensor(name)
@@ -158,6 +242,7 @@ def inspect_model(model: str) -> dict[str, Any]:
 
     return {
         "path": str(model_dir),
+        "compatibility": check_compatibility(model_dir, config, tensor_names),
         "architecture": arch,
         "totals": {
             "params": total_params,

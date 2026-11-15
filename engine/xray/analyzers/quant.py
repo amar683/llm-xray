@@ -49,8 +49,19 @@ def bits_per_weight(bits: int) -> float:
     return bits + OVERHEAD_BITS
 
 
-def fake_quant(w: torch.Tensor, bits: int, block: int = BLOCK) -> torch.Tensor:
-    """Round `w` to `bits` bits, with one scale and offset per block along each row."""
+# Big matrices are processed in slices of rows, so the 32-bit working copies
+# stay small. An embedding or output head can hold over a billion values;
+# converting it in one go needs several copies of 4-5 GB each.
+CHUNK_VALUES = 1 << 24
+
+
+def _row_slices(w: torch.Tensor):
+    step = max(1, CHUNK_VALUES // max(w.shape[1], 1))
+    for start in range(0, w.shape[0], step):
+        yield slice(start, start + step)
+
+
+def _fake_quant_rows(w: torch.Tensor, bits: int, block: int) -> torch.Tensor:
     rows, cols = w.shape
     pad = (-cols) % block
     x = w.float()
@@ -64,6 +75,19 @@ def fake_quant(w: torch.Tensor, bits: int, block: int = BLOCK) -> torch.Tensor:
     scale = torch.where(scale == 0, torch.ones_like(scale), scale)
     q = ((x - lo) / scale).round().clamp_(0, levels) * scale + lo
     return q.reshape(rows, -1)[:, :cols].to(w.dtype)
+
+
+def fake_quant(w: torch.Tensor, bits: int, block: int = BLOCK) -> torch.Tensor:
+    """Round `w` to `bits` bits, with one scale and offset per block along each row.
+
+    Blocks never cross rows, so working in slices of rows gives the same result.
+    """
+    if w.numel() <= CHUNK_VALUES:
+        return _fake_quant_rows(w, bits, block)
+    out = torch.empty_like(w)
+    for rows in _row_slices(w):
+        out[rows] = _fake_quant_rows(w[rows], bits, block)
+    return out
 
 
 def quant_targets(lm: LoadedModel) -> dict[str, torch.nn.Parameter]:
@@ -159,34 +183,59 @@ def input_importance(
 
 
 @torch.inference_mode()
+@torch.inference_mode()
 def weight_stats(w: torch.Tensor, importance: torch.Tensor | None) -> dict[str, Any]:
     """Shape of the weight distribution and rounding error at each bit width.
 
     `rel_error` is ||w - q||^2 / ||w||^2. `weighted_error` weights each input
     column by how strongly the model drives it, so errors on busy inputs count
     for more; it tracks real damage better than the plain error.
+
+    Works through the matrix in slices of rows, so memory stays small however
+    large the matrix is. Each slice is summed in 32-bit (Apple GPUs have no
+    64-bit floats) and the slice totals are added up in Python's 64-bit floats.
+    The spread is measured around the mean in a second pass, which stays
+    accurate where expanding raw powers would not.
     """
-    x = w.float()
-    std = x.std().item()
-    centred = x - x.mean()
     imp = importance.float() if importance is not None else None
-    if imp is not None and imp.shape[0] != x.shape[1]:
+    if imp is not None and imp.shape[0] != w.shape[1]:
         imp = None  # e.g. a tied embedding matrix: its hooked input is the hidden state
-    denom = (x * x).sum().item() or 1.0
-    w_denom = ((x * x) * imp).sum().item() if imp is not None else denom
-    rel, weighted = {}, {}
-    for bits in BITS:
-        err = (x - fake_quant(w, bits).float()) ** 2
-        rel[str(bits)] = err.sum().item() / denom
-        weighted[str(bits)] = (
-            (err * imp).sum().item() / (w_denom or 1.0) if imp is not None else rel[str(bits)]
-        )
+    n = w.numel()
+    mean = sum(w[rows].float().sum().item() for rows in _row_slices(w)) / n
+    c2 = c4 = 0.0  # sums of (x - mean)^2 and (x - mean)^4
+    max_abs = 0.0
+    denom = w_denom = 0.0
+    err = {b: 0.0 for b in BITS}
+    w_err = {b: 0.0 for b in BITS}
+    for rows in _row_slices(w):
+        x = w[rows].float()
+        d2 = (x - mean) ** 2
+        c2 += d2.sum().item()
+        c4 += (d2 * d2).sum().item()
+        max_abs = max(max_abs, x.abs().max().item())
+        sq = x * x
+        denom += sq.sum().item()
+        if imp is not None:
+            w_denom += (sq * imp).sum().item()
+        for bits in BITS:
+            e = (x - _fake_quant_rows(w[rows], bits, BLOCK).float()) ** 2
+            err[bits] += e.sum().item()
+            if imp is not None:
+                w_err[bits] += (e * imp).sum().item()
+    var = c2 / n
+    std = var**0.5
+    central4 = c4 / n
+    denom = denom or 1.0
+    rel = {str(b): err[b] / denom for b in BITS}
+    weighted = {
+        str(b): w_err[b] / (w_denom or 1.0) if imp is not None else rel[str(b)] for b in BITS
+    }
     return {
-        "params": x.numel(),
+        "params": n,
         "std": std,
-        "max_abs": x.abs().max().item(),
-        "outlier_ratio": x.abs().max().item() / std if std else 0.0,
-        "kurtosis": ((centred**4).mean() / (std**4)).item() if std else 0.0,
+        "max_abs": max_abs,
+        "outlier_ratio": max_abs / std if std else 0.0,
+        "kurtosis": central4 / (var * var) if var else 0.0,
         "rel_error": rel,
         "weighted_error": weighted,
     }

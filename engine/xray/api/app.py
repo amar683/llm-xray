@@ -32,7 +32,6 @@ ALLOWED_ORIGINS = [
     "tauri://localhost",
     "http://tauri.localhost",
 ]
-SUPPORTED_MODEL_TYPES = {"llama", "qwen2", "qwen3"}
 
 
 class ModelRequest(BaseModel):
@@ -73,6 +72,8 @@ def _local_models() -> list[dict[str, Any]]:
     from huggingface_hub import scan_cache_dir
     from huggingface_hub.errors import CacheNotFound
 
+    from xray.models.inspect import compatibility_of
+
     try:
         cache = scan_cache_dir()
     except CacheNotFound:
@@ -86,6 +87,7 @@ def _local_models() -> list[dict[str, Any]]:
         if not config.exists() or not any(snapshot.glob("*.safetensors")):
             continue
         cfg = json.loads(config.read_text())
+        compat = compatibility_of(snapshot)
         found.append(
             {
                 "id": repo.repo_id,
@@ -93,7 +95,9 @@ def _local_models() -> list[dict[str, Any]]:
                 "model_type": cfg.get("model_type"),
                 "n_layers": cfg.get("num_hidden_layers"),
                 "size_bytes": repo.size_on_disk,
-                "supported": cfg.get("model_type") in SUPPORTED_MODEL_TYPES,
+                "supported": compat["ok"],
+                "problems": compat["problems"],
+                "warnings": compat["warnings"],
             }
         )
     return sorted(found, key=lambda m: (not m["supported"], m["id"].lower()))

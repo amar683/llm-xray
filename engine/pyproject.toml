@@ -58,6 +58,7 @@ select = ["E", "F", "I", "UP", "B"]
 "tests/test_report.py" = ["E501"]
 "xray/sdk.py" = ["E501"]
 "tests/test_sdk.py" = ["E501"]
+"tests/test_inspect.py" = ["E501", "E402"]
 "scripts/smoke.py" = ["E501"]
 
 [tool.pytest.ini_options]

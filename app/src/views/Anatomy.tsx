@@ -64,6 +64,18 @@ export function Anatomy({ conn, model }: { conn: Conn; model: Model }) {
       <h1>Anatomy</h1>
       <p className="summary">What {model.id} is made of. Read from the file headers; the weights are not loaded.</p>
 
+      {(!a.compatibility.ok || a.compatibility.warnings.length > 0) && (
+        <section className={a.compatibility.ok ? "panel notice" : "panel notice bad"} role="alert">
+          <b>{a.compatibility.ok ? "Worth knowing" : "This model cannot be analysed"}</b>
+          <ul className="plain">
+            {[...a.compatibility.problems, ...a.compatibility.warnings].map((text) => (
+              <li key={text}>{text}</li>
+            ))}
+          </ul>
+          {!a.compatibility.ok && <p className="muted">Its anatomy is shown below, but every analysis that runs the model will refuse it.</p>}
+        </section>
+      )}
+
       <div className="tiles">
         <Tile label="Parameters" value={`${(a.totals.params / 1e9).toFixed(2)} B`} note={`${gb(a.totals.bytes_on_disk)} on disk`} />
         <Tile label="Layers" value={String(arch.n_layers)} note={`${num(a.layers[0].params)} params each`} />

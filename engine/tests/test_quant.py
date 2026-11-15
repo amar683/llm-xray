@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from xray.analyzers.quant import BITS, fake_quant, make_plan, plan_bytes, quant_targets, run_quant
@@ -9,6 +10,41 @@ def test_fake_quant_error_shrinks_with_more_bits():
     assert errors == sorted(errors, reverse=True) and errors[-1] < 1e-4
     assert fake_quant(w, 4).shape == w.shape
     assert fake_quant(torch.randn(3, 50), 4).shape == (3, 50)  # width not a multiple of 32
+
+
+def test_slicing_big_matrices_changes_nothing(monkeypatch):
+    import xray.analyzers.quant as quant
+
+    g = torch.Generator().manual_seed(1)
+    w = (torch.randn(300, 70, generator=g) * 0.05).to(torch.float16)
+    w[7, 3] = 1.5  # an outlier
+    imp = torch.rand(70, generator=g)
+    whole_q, whole_stats = quant.fake_quant(w, 4), quant.weight_stats(w, imp)
+    monkeypatch.setattr(quant, "CHUNK_VALUES", 1000)  # forces 15+ slices of a few rows
+    assert len(list(quant._row_slices(w))) > 10
+    assert torch.equal(quant.fake_quant(w, 4), whole_q)
+    sliced = quant.weight_stats(w, imp)
+    for key in ("std", "max_abs", "outlier_ratio", "kurtosis"):
+        assert sliced[key] == pytest.approx(whole_stats[key], rel=1e-6), key
+    for b in BITS:
+        assert sliced["rel_error"][str(b)] == pytest.approx(
+            whole_stats["rel_error"][str(b)], rel=1e-5
+        )
+        assert sliced["weighted_error"][str(b)] == pytest.approx(
+            whole_stats["weighted_error"][str(b)], rel=1e-5
+        )
+
+
+def test_weight_stats_match_direct_formulas():
+    from xray.analyzers.quant import weight_stats
+
+    w = torch.randn(64, 64, generator=torch.Generator().manual_seed(2))
+    s = weight_stats(w, None)
+    x = w.double()
+    assert s["std"] == pytest.approx(x.std(unbiased=False).item(), rel=1e-6)
+    kurt = (((x - x.mean()) ** 4).mean() / x.var(unbiased=False) ** 2).item()
+    assert s["kurtosis"] == pytest.approx(kurt, rel=1e-6)
+    assert s["max_abs"] == pytest.approx(x.abs().max().item())
 
 
 def test_plan_respects_budget_and_spends_bits_on_sensitive_tensors():

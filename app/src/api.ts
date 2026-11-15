@@ -90,6 +90,8 @@ export type ModelInfo = {
   n_layers: number | null;
   size_bytes: number;
   supported: boolean;
+  problems: string[];
+  warnings: string[];
 };
 
 export type JobEvent = {
@@ -113,8 +115,11 @@ export type RunRow = {
   params: Record<string, unknown>;
 };
 
+export type Compatibility = { ok: boolean; problems: string[]; warnings: string[] };
+
 export type Anatomy = {
   path: string;
+  compatibility: Compatibility;
   architecture: Record<string, number | string | boolean | null>;
   totals: { params: number; bytes_on_disk: number; stored_dtypes: Record<string, number> };
   by_component: Record<string, number>;

@@ -253,3 +253,8 @@ li.done .step-mark { border-color: var(--good); color: var(--good); }
 li.next .step-mark { border-color: var(--accent); color: var(--accent); }
 .step-body { flex: 1; min-width: 0; }
 .step-body p { margin: 2px 0 0; }
+
+.notice { border-color: var(--warn); }
+.notice.bad { border-color: var(--bad); }
+.notice b { display: block; margin-bottom: 6px; }
+tr.reason td { padding-top: 0; border-bottom: 1px solid var(--border); }
