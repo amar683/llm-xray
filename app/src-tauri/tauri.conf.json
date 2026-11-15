@@ -45,6 +45,9 @@
     },
     "category": "DeveloperTool",
     "shortDescription": "Measure what a local language model does inside.",
-    "license": "Apache-2.0"
+    "license": "Apache-2.0",
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }
