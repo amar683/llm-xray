@@ -1,8 +1,9 @@
 # Releasing
 
-Version 0.9.0 is a release candidate. It has been built and run on one machine
-(macOS, Apple Silicon). This page lists what a 1.0 release still needs and how
-to do each part.
+Version 0.9.x is a release candidate. Installers for macOS, Windows and Linux
+are built and published by the release workflow, but only the macOS app has
+been installed and run by a person. This page lists what a 1.0 release still
+needs and how to do each part.
 
 ## What is verified, and where
 

@@ -7,7 +7,7 @@
 See `xray.sdk` for the full API.
 """
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 _PUBLIC = ("Model", "Run", "compare", "load_run", "runs")
 __all__ = ["__version__", *_PUBLIC]

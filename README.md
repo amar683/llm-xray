@@ -10,7 +10,7 @@ weights and see exactly what each change costs, measured against the original.
 
 Everything runs locally. Nothing is uploaded, and no model is ever downloaded.
 
-> **Status: 0.9.0, release candidate.** The engine is tested on macOS, Windows
+> **Status: 0.9.1, release candidate.** The engine is tested on macOS, Windows
 > and Linux. The desktop app has been installed and run on macOS (Apple
 > Silicon) only, and installers are not yet signed. See
 > [What works where](#what-works-where).
