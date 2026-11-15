@@ -1,0 +1,64 @@
+[project]
+name = "xray-engine"
+version = "0.9.0"
+description = "LLM X-Ray engine: local, offline measurement of what a language model does inside."
+requires-python = ">=3.12"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+dependencies = [
+    "torch>=2.6",
+    "transformers>=4.50",
+    "safetensors>=0.4",
+    "huggingface-hub>=0.25",
+    "numpy>=2.0",
+    "psutil>=6.0",
+    "typer>=0.12",
+    "rich>=13.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=13.0",
+]
+
+[project.scripts]
+xray = "xray.cli:app"
+
+[project.optional-dependencies]
+export = [
+    "sentencepiece>=0.2.3",
+]
+advisor = [
+    "anthropic>=2.8.0",
+]
+mlx = [
+    "mlx-lm>=0.32.2 ; sys_platform == 'darwin'",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.6", "httpx>=0.27"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["xray"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Data tables read better on one line each.
+"scripts/make_eval_tasks.py" = ["E501"]
+# Report text templates are sentences; wrapping them hurts readability.
+"xray/report/*.py" = ["E501"]
+"tests/test_report.py" = ["E501"]
+"xray/sdk.py" = ["E501"]
+"tests/test_sdk.py" = ["E501"]
+"scripts/smoke.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

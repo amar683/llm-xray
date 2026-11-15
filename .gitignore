@@ -1,0 +1,30 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node / Tauri
+node_modules/
+dist/
+app/src-tauri/target/
+app/src-tauri/gen/
+
+# Run outputs and local data
+runs/
+*.gguf
+*.safetensors
+
+.DS_Store
+.xray/
+
+# Local dev settings
+*.local
+
+# The uv binary copied in for bundling
+app/src-tauri/binaries/
+
+# Personal notes and local tool settings (kept on disk, never published)
+PLAN.md
+.claude/

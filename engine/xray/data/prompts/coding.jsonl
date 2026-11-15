@@ -1,0 +1,50 @@
+{"prompt": "Write a Python function that reverses a string."}
+{"prompt": "Write a JavaScript function that reverses a string."}
+{"prompt": "Write a TypeScript function that reverses a string."}
+{"prompt": "Write a Go function that reverses a string."}
+{"prompt": "Write a Rust function that reverses a string."}
+{"prompt": "Write a Python function that checks whether a number is prime."}
+{"prompt": "Write a JavaScript function that checks whether a number is prime."}
+{"prompt": "Write a TypeScript function that checks whether a number is prime."}
+{"prompt": "Write a Go function that checks whether a number is prime."}
+{"prompt": "Write a Rust function that checks whether a number is prime."}
+{"prompt": "Write a Python function that returns the n-th Fibonacci number."}
+{"prompt": "Write a JavaScript function that returns the n-th Fibonacci number."}
+{"prompt": "Write a TypeScript function that returns the n-th Fibonacci number."}
+{"prompt": "Write a Go function that returns the n-th Fibonacci number."}
+{"prompt": "Write a Rust function that returns the n-th Fibonacci number."}
+{"prompt": "Write a Python function that removes duplicates from a list while keeping the original order."}
+{"prompt": "Write a JavaScript function that removes duplicates from a list while keeping the original order."}
+{"prompt": "Write a TypeScript function that removes duplicates from a list while keeping the original order."}
+{"prompt": "Write a Go function that removes duplicates from a list while keeping the original order."}
+{"prompt": "Write a Rust function that removes duplicates from a list while keeping the original order."}
+{"prompt": "Write a Python function that counts how often each word appears in a text."}
+{"prompt": "Write a JavaScript function that counts how often each word appears in a text."}
+{"prompt": "Write a TypeScript function that counts how often each word appears in a text."}
+{"prompt": "Write a Go function that counts how often each word appears in a text."}
+{"prompt": "Write a Rust function that counts how often each word appears in a text."}
+{"prompt": "Write a Python function that merges two sorted arrays into one sorted array."}
+{"prompt": "Write a JavaScript function that merges two sorted arrays into one sorted array."}
+{"prompt": "Write a TypeScript function that merges two sorted arrays into one sorted array."}
+{"prompt": "Write a Go function that merges two sorted arrays into one sorted array."}
+{"prompt": "Write a Rust function that merges two sorted arrays into one sorted array."}
+{"prompt": "Write a Python function that checks that the brackets in a string are balanced."}
+{"prompt": "Write a JavaScript function that checks that the brackets in a string are balanced."}
+{"prompt": "Write a TypeScript function that checks that the brackets in a string are balanced."}
+{"prompt": "Write a Go function that checks that the brackets in a string are balanced."}
+{"prompt": "Write a Rust function that checks that the brackets in a string are balanced."}
+{"prompt": "Write a Python function that converts a Roman numeral to an integer."}
+{"prompt": "Write a JavaScript function that converts a Roman numeral to an integer."}
+{"prompt": "Write a TypeScript function that converts a Roman numeral to an integer."}
+{"prompt": "Write a Go function that converts a Roman numeral to an integer."}
+{"prompt": "Write a Rust function that converts a Roman numeral to an integer."}
+{"prompt": "Write a Python function that finds the longest common prefix of a list of strings."}
+{"prompt": "Write a JavaScript function that finds the longest common prefix of a list of strings."}
+{"prompt": "Write a TypeScript function that finds the longest common prefix of a list of strings."}
+{"prompt": "Write a Go function that finds the longest common prefix of a list of strings."}
+{"prompt": "Write a Rust function that finds the longest common prefix of a list of strings."}
+{"prompt": "Write a Python function that runs a binary search on a sorted array."}
+{"prompt": "Write a JavaScript function that runs a binary search on a sorted array."}
+{"prompt": "Write a TypeScript function that runs a binary search on a sorted array."}
+{"prompt": "Write a Go function that runs a binary search on a sorted array."}
+{"prompt": "Write a Rust function that runs a binary search on a sorted array."}
