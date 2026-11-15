@@ -226,7 +226,7 @@ def drop_layer_ablation(
         "layers": [
             {
                 "layer": i,
-                "drop_kl": kl[i].item() / positions,
+                "drop_kl": max(kl[i].item() / positions, 0.0),  # negative only by rounding
                 "drop_top1_agreement": agree[i].item() / positions,
                 "drop_nll_increase": nll[i].item() / targets_n - base_nll / targets_n,
             }

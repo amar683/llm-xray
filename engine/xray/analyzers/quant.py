@@ -118,7 +118,8 @@ def compare(lm: LoadedModel, encoded: list[torch.Tensor], base: list[torch.Tenso
         positions += ids.shape[1] - 1
     positions = max(positions, 1)
     return {
-        "kl": kl / positions,
+        # KL divergence is never negative; tiny negative sums are rounding noise.
+        "kl": max(kl / positions, 0.0),
         "top1_agreement": agree / positions,
         "nll_increase": (nll - base_nll) / positions,
     }

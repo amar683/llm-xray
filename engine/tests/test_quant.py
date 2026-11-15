@@ -31,6 +31,16 @@ def test_plan_is_not_blocked_by_a_noisy_measurement():
     assert plan["noisy"] >= 5
 
 
+def test_kl_is_never_negative_even_with_rounding_noise(tiny, prompts):
+    from xray.analyzers.quant import compare, log_probs
+
+    base = log_probs(tiny, prompts)
+    # Comparing the model with itself: the true KL is exactly zero.
+    assert compare(tiny, prompts, base)["kl"] == 0.0
+    nudged = [b + 1e-7 for b in base]  # a slightly different "base" gives a tiny negative sum
+    assert compare(tiny, prompts, nudged)["kl"] >= 0.0
+
+
 def test_run_quant_end_to_end_and_restores_weights(tiny, prompts):
     before = {n: p.data.clone() for n, p in quant_targets(tiny).items()}
     r = run_quant(tiny, prompts[:2], prompts[2:], probe_bits=4, targets_bits=(4,))
